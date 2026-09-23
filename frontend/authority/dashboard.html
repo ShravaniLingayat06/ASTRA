@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authority Intelligence Command — ASTRA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-base: #07090e;
+      --bg-surface: #0e111a;
+      --bg-elevated: #141824;
+      --bg-hover: #1b2132;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(255, 255, 255, 0.18);
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+      --text-muted: #64748b;
+      
+      --brand-blue: #3b82f6;
+      --brand-indigo: #6366f1;
+      --status-red: #ef4444;
+      --status-amber: #f59e0b;
+      --status-emerald: #10b981;
+      --status-sky: #0ea5e9;
+
+      --font-sans: 'Inter', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-feature-settings: "tnum";
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Command Header */
+    header {
+      height: 60px;
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background: rgba(7, 9, 14, 0.95);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand-mark {
+      width: 26px;
+      height: 26px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .brand-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+    }
+
+    .header-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      padding-left: 12px;
+      border-left: 1px solid var(--border);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .btn-action-ghost {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-sub);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+
+    .btn-action-ghost:hover {
+      border-color: var(--text-sub);
+      color: var(--text-main);
+    }
+
+    /* Pilot Success Metrics Bar (Slide 9) */
+    .metrics-strip {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-surface);
+    }
+
+    @media (max-width: 1100px) {
+      .metrics-strip { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .metric-cell {
+      padding: 14px 28px;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .metric-cell:last-child { border-right: none; }
+
+    .metric-cell-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .metric-cell-val {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .metric-cell-sub {
+      font-size: 11px;
+      color: var(--text-sub);
+    }
+
+    /* Filters & Controls */
+    .controls-strip {
+      padding: 12px 32px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-base);
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .filter-group {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .filter-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-btn:hover {
+      border-color: var(--border-focus);
+      color: var(--text-main);
+    }
+
+    .filter-btn.active {
+      background: var(--bg-elevated);
+      border-color: var(--brand-blue);
+      color: var(--text-main);
+    }
+
+    .search-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      outline: none;
+      min-width: 240px;
+    }
+
+    .search-box:focus { border-color: var(--brand-blue); }
+
+    /* Main Console Grid */
+    .console-layout {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      flex: 1;
+      min-height: calc(100vh - 170px);
+    }
+
+    @media (max-width: 1100px) {
+      .console-layout { grid-template-columns: 1fr; }
+    }
+
+    .map-column {
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      background: #000;
+    }
+
+    #map {
+      width: 100%;
+      height: 520px;
+      background: #090a0f;
+    }
+
+    /* Trend Chart Section */
+    .chart-section {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-surface);
+      flex: 1;
+    }
+
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .chart-title {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    /* Patterns Column */
+    .patterns-column {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-base);
+    }
+
+    .patterns-column-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-surface);
+    }
+
+    .patterns-list {
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+      max-height: calc(100vh - 240px);
+    }
+
+    /* Pattern Card */
+    .pattern-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .pattern-card:hover {
+      background: var(--bg-elevated);
+      border-color: var(--border-focus);
+    }
+
+    .pattern-top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .level-badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .level-ESCALATING { background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .level-CONCERNING { background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .level-EMERGING { background: rgba(59, 130, 246, 0.12); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .level-NORMAL { background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+
+    .risk-num {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .pattern-heading {
+      font-size: 14px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 6px;
+    }
+
+    .pattern-narrative {
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-sub);
+      margin-bottom: 14px;
+    }
+
+    /* Sub-signal breakdown gauge rows */
+    .signals-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+    }
+
+    .signal-item {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+
+    .signal-item span {
+      color: var(--text-sub);
+      font-weight: 500;
+    }
+
+    .signal-bar-track {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .signal-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--brand-blue);
+    }
+
+    .btn-review-trigger {
+      width: 100%;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.15s;
+    }
+
+    .btn-review-trigger:hover {
+      background: var(--text-main);
+      color: var(--bg-base);
+    }
+
+    /* Review Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-sheet {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 28px;
+      max-width: 520px;
+      width: 90%;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.8);
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .modal-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+
+    .modal-group {
+      margin-bottom: 16px;
+    }
+
+    .modal-label {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .modal-input {
+      width: 100%;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 13px;
+      color: var(--text-main);
+      outline: none;
+      font-family: var(--font-sans);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .btn-modal-cancel {
+      flex: 1;
+      padding: 10px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: var(--font-mono);
+    }
+
+    .btn-modal-submit {
+      flex: 1;
+      padding: 10px;
+      background: var(--brand-blue);
+      border: none;
+      color: #ffffff;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <div class="brand-mark">A</div>
+      <div class="brand-title">ASTRA Intelligence Command</div>
+      <div class="header-tag">CX1001 &bull; BANGALORE CENTRAL SECTOR</div>
+    </div>
+    <div class="header-actions">
+      <a href="/" class="btn-action-ghost">&larr; PLATFORM PORTAL</a>
+      <button class="btn-action-ghost" onclick="triggerRefresh()">⚡ SYNC GIS & DBSCAN</button>
+    </div>
+  </header>
+
+  <!-- Pilot Success Metrics Bar (Slide 9) -->
+  <div class="metrics-strip">
+    <div class="metric-cell">
+      <div class="metric-cell-label">Detection Precision</div>
+      <div class="metric-cell-val" style="color: var(--brand-blue);">94.2%</div>
+      <div class="metric-cell-sub">Validated patterns / total alerts</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-cell-label">False Alert Rate</div>
+      <div class="metric-cell-val" style="color: var(--status-emerald);">3.8%</div>
+      <div class="metric-cell-sub">Dismissed by authority review</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-cell-label">Detection Lead Time</div>
+      <div class="metric-cell-val" style="color: var(--status-amber);">3.2 Days</div>
+      <div class="metric-cell-sub">Identified prior to major incident</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-cell-label">Authority Response</div>
+      <div class="metric-cell-val" style="color: var(--text-main);">&lt; 14 Mins</div>
+      <div class="metric-cell-sub">Average review & directive commit</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-cell-label">Reporter Diversity</div>
+      <div class="metric-cell-val" style="color: var(--brand-indigo);">3.6 Sources</div>
+      <div class="metric-cell-sub">Average independent corroboration</div>
+    </div>
+  </div>
+
+  <!-- Operational Filters & Search Bar (Slide 8 Phase 3) -->
+  <div class="controls-strip">
+    <div class="filter-group">
+      <button class="filter-btn active" onclick="setFilter('ALL')">ALL PATTERNS</button>
+      <button class="filter-btn" onclick="setFilter('ESCALATING')">🔴 ESCALATING</button>
+      <button class="filter-btn" onclick="setFilter('CONCERNING')">🟡 CONCERNING</button>
+      <button class="filter-btn" onclick="setFilter('EMERGING')">🔵 EMERGING</button>
+      <button class="filter-btn" onclick="setFilter('CAMPUS')">🏫 CAMPUS / TRANSIT</button>
+    </div>
+    <input type="text" id="searchInput" class="search-box" placeholder="Filter by landmark, MO, or incident tag..." oninput="filterPatterns()">
+  </div>
+
+  <!-- Console Layout -->
+  <div class="console-layout">
+    <!-- Map & Velocity Timeline Scrubber -->
+    <div class="map-column">
+      <div id="map"></div>
+
+      <!-- Incident Velocity & Acceleration Curve (Slide 5 & 6) -->
+      <div class="chart-section">
+        <div class="chart-header">
+          <span class="chart-title">Incident Velocity & Escalation Trajectory (4-Week Window)</span>
+          <span style="font-family: var(--font-mono); font-size: 10px; color: var(--status-red);">ACCELERATION: HIGH</span>
+        </div>
+        <div style="height: 140px; position: relative;">
+          <canvas id="trendChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Emerging Patterns Column -->
+    <div class="patterns-column">
+      <div class="patterns-column-header">
+        <span style="font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; color: var(--text-muted);">Correlated Threats</span>
+        <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-main);" id="patternCounter">0 CLUSTERS</span>
+      </div>
+
+      <div class="patterns-list" id="patternsContainer">
+        <div style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); text-align: center; padding: 48px;">
+          Ingesting and correlating active spatial clusters...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Human-in-the-Loop Review Modal (Slide 4 Safeguard & Slide 5 Step 7) -->
+  <div class="modal-backdrop" id="reviewModal">
+    <div class="modal-sheet">
+      <h3 class="modal-title" id="modalTitle">Formal Review & Intervention</h3>
+      <p class="modal-desc">
+        Human authority decision committing tactical interventions to the immutable security audit log.
+      </p>
+
+      <div class="modal-group">
+        <label class="modal-label">Authority Directive</label>
+        <select class="modal-input" id="reviewDecision">
+          <option value="PATROL_DISPATCHED">Dispatch Tactical Patrol Unit to Coordinates</option>
+          <option value="CONFIRMED_THREAT">Confirm Threat & Issue Municipal Safety Advisory</option>
+          <option value="MONITORING">Maintain Real-Time AI Camera Surveillance</option>
+          <option value="FALSE_POSITIVE">Dismiss as Isolated / False Anomaly</option>
+        </select>
+      </div>
+
+      <div class="modal-group">
+        <label class="modal-label">Operational Notes & Sector Orders</label>
+        <textarea class="modal-input" id="reviewNotes" rows="3" placeholder="Specify patrol frequency, lighting inspection directives, or tactical notes..."></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-modal-cancel" onclick="closeModal()">CANCEL</button>
+        <button class="btn-modal-submit" onclick="submitReviewAction()">COMMIT DIRECTIVE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    let map;
+    let markersLayer = L.layerGroup();
+    let circlesLayer = L.layerGroup();
+    let allPatterns = [];
+    let currentPatternId = null;
+    let activeFilter = 'ALL';
+
+    function initMap() {
+      map = L.map('map', { zoomControl: false }).setView([12.9716, 77.5946], 12);
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      // Clean dark CartoDB tiles
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; CartoDB &bull; ASTRA GIS',
+        maxZoom: 19
+      }).addTo(map);
+
+      markersLayer.addTo(map);
+      circlesLayer.addTo(map);
+    }
+
+    function initTrendChart() {
+      const ctx = document.getElementById('trendChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['Wk 1', 'Wk 2', 'Wk 3', 'Wk 4 (Current)'],
+          datasets: [
+            {
+              label: 'Brigade Road North Alley (Escalating)',
+              data: [1, 2, 4, 7],
+              borderColor: '#ef4444',
+              backgroundColor: 'rgba(239, 68, 68, 0.08)',
+              borderWidth: 2,
+              pointBackgroundColor: '#ef4444',
+              tension: 0.35,
+              fill: true
+            },
+            {
+              label: 'Koramangala Transit Hub (Concerning)',
+              data: [1, 1, 2, 3],
+              borderColor: '#f59e0b',
+              backgroundColor: 'rgba(245, 158, 11, 0.04)',
+              borderWidth: 2,
+              pointBackgroundColor: '#f59e0b',
+              tension: 0.35,
+              fill: true
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: {
+                color: '#94a3b8',
+                font: { family: "'JetBrains Mono', monospace", size: 10 }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.04)' },
+              ticks: { color: '#64748b', font: { family: "'JetBrains Mono', monospace", size: 9 } }
+            },
+            y: {
+              grid: { color: 'rgba(255, 255, 255, 0.04)' },
+              ticks: { color: '#64748b', font: { family: "'JetBrains Mono', monospace", size: 9 }, stepSize: 2 }
+            }
+          }
+        }
+      });
+    }
+
+    async function loadData() {
+      try {
+        const [pRes, iRes] = await Promise.all([
+          fetch('/api/patterns/'),
+          fetch('/api/incidents/')
+        ]);
+
+        if (pRes.ok && iRes.ok) {
+          allPatterns = await pRes.json();
+          const incidents = await iRes.json();
+          renderMap(allPatterns, incidents);
+          filterPatterns();
+        }
+      } catch (err) {
+        console.error('Data sync err', err);
+      }
+    }
+
+    function renderMap(patterns, incidents) {
+      markersLayer.clearLayers();
+      circlesLayer.clearLayers();
+
+      // Render individual incidents with crisp tactical markers
+      incidents.forEach(inc => {
+        const marker = L.circleMarker([inc.latitude, inc.longitude], {
+          radius: 4,
+          color: '#ffffff',
+          weight: 1,
+          fillColor: inc.source === 'cctv_ai' ? '#38bdf8' : '#f43f5e',
+          fillOpacity: 0.9
+        });
+        marker.bindPopup(`
+          <div style="font-family:'Inter',sans-serif; font-size:12px; line-height:1.4;">
+            <strong>${inc.incident_type.toUpperCase()}</strong><br>
+            Severity: ${inc.severity}/5 &bull; Source: ${inc.source} (${inc.reporter_type})<br>
+            <span style="color:#64748b;">${inc.description || 'No description logged.'}</span>
+          </div>
+        `);
+        markersLayer.addLayer(marker);
+      });
+
+      // Render DBSCAN cluster boundary bubbles
+      patterns.forEach(p => {
+        if (p.latitude && p.longitude) {
+          let color = '#10b981';
+          if (p.pattern_level === 'ESCALATING') color = '#ef4444';
+          else if (p.pattern_level === 'CONCERNING') color = '#f59e0b';
+          else if (p.pattern_level === 'EMERGING') color = '#3b82f6';
+
+          const circle = L.circle([p.latitude, p.longitude], {
+            radius: p.radius_meters || 200,
+            color: color,
+            fillColor: color,
+            fillOpacity: 0.12,
+            weight: 1.5,
+            dashArray: '4, 4'
+          });
+          circle.bindPopup(`
+            <div style="font-family:'Inter',sans-serif; font-size:12px; line-height:1.4;">
+              <strong>${p.title}</strong><br>
+              Status: ${p.pattern_level} &bull; Risk Score: ${p.risk_score.toFixed(1)}/100<br>
+              ${p.explanation}
+            </div>
+          `);
+          circlesLayer.addLayer(circle);
+        }
+      });
+    }
+
+    function setFilter(filter) {
+      activeFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+      filterPatterns();
+    }
+
+    function filterPatterns() {
+      const q = document.getElementById('searchInput').value.toLowerCase();
+      const filtered = allPatterns.filter(p => {
+        const matchLevel = (activeFilter === 'ALL') ||
+          (activeFilter === 'CAMPUS' ? (p.title?.toLowerCase().includes('transit') || p.title?.toLowerCase().includes('campus')) : p.pattern_level === activeFilter);
+        const matchQuery = !q ||
+          (p.title && p.title.toLowerCase().includes(q)) ||
+          (p.explanation && p.explanation.toLowerCase().includes(q));
+        return matchLevel && matchQuery;
+      });
+
+      renderPatternsList(filtered);
+    }
+
+    function renderPatternsList(patterns) {
+      const container = document.getElementById('patternsContainer');
+      document.getElementById('patternCounter').innerText = `${patterns.length} ACTIVE`;
+
+      if (patterns.length === 0) {
+        container.innerHTML = `<div style="font-family:var(--font-mono); font-size:11px; color:var(--text-muted); text-align:center; padding:48px;">No matching patterns.</div>`;
+        return;
+      }
+
+      container.innerHTML = patterns.map(p => {
+        const ev = p.evidence || {};
+        const spatialVal = ev.spatial?.spatial_score || 0;
+        const tempVal = ev.temporal?.temporal_score || 0;
+        const freqVal = ev.frequency?.frequency_score || 0;
+        const trendVal = ev.trend?.trend_score || 0;
+
+        return `
+          <div class="pattern-card" onclick="focusCluster(${p.latitude}, ${p.longitude})">
+            <div class="pattern-top-bar">
+              <span class="level-badge level-${p.pattern_level}">${p.pattern_level}</span>
+              <span class="risk-num">${p.risk_score.toFixed(1)} <span style="font-size:10px; color:var(--text-muted);">RISK</span></span>
+            </div>
+
+            <div class="pattern-heading">${p.title || 'Cluster Profile'}</div>
+            <div class="pattern-narrative">${p.explanation}</div>
+
+            <div class="signals-grid">
+              <div class="signal-item">
+                Spatial Density: <span>${spatialVal.toFixed(0)}%</span>
+                <div class="signal-bar-track"><div class="signal-bar-fill" style="width:${spatialVal}%;"></div></div>
+              </div>
+              <div class="signal-item">
+                Time Window: <span>${tempVal.toFixed(0)}%</span>
+                <div class="signal-bar-track"><div class="signal-bar-fill" style="width:${tempVal}%;"></div></div>
+              </div>
+              <div class="signal-item">
+                Surge Velocity: <span>${freqVal.toFixed(0)}%</span>
+                <div class="signal-bar-track"><div class="signal-bar-fill" style="width:${freqVal}%;"></div></div>
+              </div>
+              <div class="signal-item">
+                Trend Trajectory: <span>${trendVal.toFixed(0)}%</span>
+                <div class="signal-bar-track"><div class="signal-bar-fill" style="width:${trendVal}%;"></div></div>
+              </div>
+            </div>
+
+            <button class="btn-review-trigger" onclick="event.stopPropagation(); openReviewModal('${p.id}', '${p.title}')">
+              <span>✍️ COMMIT AUTHORITY DIRECTIVE</span>
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function focusCluster(lat, lon) {
+      if (lat && lon) {
+        map.flyTo([lat, lon], 15, { duration: 1.2 });
+      }
+    }
+
+    async function triggerRefresh() {
+      try {
+        await fetch('/api/patterns/refresh', { method: 'POST' });
+        loadData();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function openReviewModal(id, title) {
+      currentPatternId = id;
+      document.getElementById('modalTitle').innerText = `Directive: ${title}`;
+      document.getElementById('reviewModal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('reviewModal').style.display = 'none';
+    }
+
+    async function submitReviewAction() {
+      if (!currentPatternId) return;
+      const decision = document.getElementById('reviewDecision').value;
+      const notes = document.getElementById('reviewNotes').value;
+
+      try {
+        const res = await fetch('/api/reviews/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pattern_id: currentPatternId,
+            decision: decision,
+            notes: notes,
+            action_taken: decision
+          })
+        });
+        alert("Authority directive successfully registered into security audit trail.");
+        closeModal();
+        loadData();
+      } catch (e) {
+        alert("Review registration notice: " + e.message);
+      }
+    }
+
+    window.onload = () => {
+      initMap();
+      initTrendChart();
+      loadData();
+      setInterval(loadData, 8000);
+    };
+  </script>
+</body>
+</html>

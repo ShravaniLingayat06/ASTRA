@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sector Surveillance & CV Telemetry — ASTRA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #090a0f;
+      --bg-surface: #10131c;
+      --bg-elevated: #161b26;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+      --text-muted: #64748b;
+      --accent-blue: #3b82f6;
+      --accent-red: #ef4444;
+      --accent-amber: #f59e0b;
+      --accent-emerald: #10b981;
+      --font-sans: 'Inter', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      height: 56px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background: rgba(9, 10, 15, 0.95);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .nav-back {
+      color: var(--text-sub);
+      text-decoration: none;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .nav-back:hover { color: var(--text-main); }
+
+    .sector-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent-amber);
+      background: rgba(245, 158, 11, 0.08);
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .system-clock {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: 2.2fr 1fr;
+      gap: 20px;
+      padding: 24px 28px;
+      max-width: 1680px;
+      width: 100%;
+      margin: 0 auto;
+      flex: 1;
+    }
+
+    @media (max-width: 1050px) {
+      .main-layout { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 14px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .panel-title {
+      font-size: 13px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-main);
+    }
+
+    .video-viewport {
+      position: relative;
+      width: 100%;
+      height: 480px;
+      background: #000;
+      border-radius: 6px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .video-stream {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* Tactical HUD Overlay */
+    .hud-header {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    .hud-badge {
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .rec-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-red);
+      animation: blink 1.2s infinite;
+    }
+
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    /* Telemetry Data Grid */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .tele-box {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+
+    .tele-label {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .tele-num {
+      font-size: 22px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: #ffffff;
+      margin-top: 4px;
+    }
+
+    /* Action Trigger */
+    .btn-dispatch {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-strong);
+      color: var(--text-main);
+      padding: 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.15s;
+    }
+
+    .btn-dispatch:hover {
+      background: var(--text-main);
+      color: var(--bg-base);
+    }
+
+    /* Alerts Log Feed */
+    .alerts-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+      max-height: 640px;
+    }
+
+    .feed-card {
+      background: var(--bg-elevated);
+      border-left: 3px solid var(--border);
+      border-radius: 0 6px 6px 0;
+      padding: 14px;
+      font-size: 12px;
+    }
+
+    .feed-card.CRITICAL { border-left-color: var(--accent-red); }
+    .feed-card.HIGH { border-left-color: var(--accent-amber); }
+
+    .feed-head {
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+
+    .feed-body {
+      color: var(--text-sub);
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+
+    .feed-foot {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <a href="/" class="nav-back">
+        &larr; PORTAL
+      </a>
+      <span class="sector-tag">SECTOR 04 &bull; CCTV NODE 12</span>
+    </div>
+    <div class="system-clock" id="liveClock">2026-09-21 00:00:00 UTC</div>
+  </header>
+
+  <div class="main-layout">
+    <!-- Camera Surveillance & CV Stream -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Surveillance Feed & Real-time CV Extraction</span>
+        <span style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-emerald);">● YOLOv8 + SSD ONLINE</span>
+      </div>
+
+      <div class="video-viewport">
+        <!-- Connecting to running complete.py stream -->
+        <img id="cvStream" class="video-stream" src="http://127.0.0.1:5000/video_feed" 
+             onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1517649763962-0c623266ddc0?w=800&auto=format&fit=crop&q=60'; document.getElementById('feedStatus').innerText='STANDBY FEED ACTIVE';">
+        <div class="hud-header">
+          <div class="hud-badge">
+            <span class="rec-dot"></span>
+            <span id="feedStatus">LIVE STREAM :5000</span>
+          </div>
+          <div class="hud-badge">
+            <span>RES: 1080P &bull; 30 FPS</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Crowd Telemetry -->
+      <div class="telemetry-grid">
+        <div class="tele-box">
+          <div class="tele-label">Crowd Density</div>
+          <div class="tele-num" id="faceCount">5</div>
+        </div>
+        <div class="tele-box">
+          <div class="tele-label">M / F Ratio</div>
+          <div class="tele-num" id="mfRatio">4.0 : 1</div>
+        </div>
+        <div class="tele-box">
+          <div class="tele-label">Posture Status</div>
+          <div class="tele-num" style="color: var(--accent-amber); font-size: 16px; margin-top: 8px;">CONFRONTATIONAL</div>
+        </div>
+        <div class="tele-box">
+          <div class="tele-label">Threat Velocity</div>
+          <div class="tele-num" style="color: var(--accent-red); font-size: 16px; margin-top: 8px;">SURGING</div>
+        </div>
+      </div>
+
+      <button class="btn-dispatch" id="btnSignal">
+        <span>⚡ TRANSMIT CV ANOMALY TRIGGER TO ASTRA PLATFORM</span>
+      </button>
+    </div>
+
+    <!-- Active Priority Alerts Feed -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Active Security Warnings</span>
+        <button onclick="fetchAlerts()" style="background:none; border:none; color:var(--accent-blue); font-family:var(--font-mono); font-size:11px; cursor:pointer;">REFRESH</button>
+      </div>
+
+      <div class="alerts-feed" id="alertsContainer">
+        <div style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); text-align: center; padding: 32px;">
+          Scanning priority warnings...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('liveClock').innerText = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    async function fetchAlerts() {
+      try {
+        const res = await fetch('/api/alerts/');
+        if (res.ok) {
+          const alerts = await res.json();
+          const container = document.getElementById('alertsContainer');
+          if (alerts.length === 0) {
+            container.innerHTML = `<div style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); text-align: center; padding: 32px;">No active alerts logged.</div>`;
+            return;
+          }
+          container.innerHTML = alerts.map(a => `
+            <div class="feed-card ${a.alert_level}">
+              <div class="feed-head">${a.headline}</div>
+              <div class="feed-body">${a.explanation}</div>
+              <div class="feed-foot">
+                <span>RISK: ${a.risk_score.toFixed(1)}/100</span>
+                <span>STATUS: ${a.status}</span>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (e) {
+        console.warn('Alert feed err', e);
+      }
+    }
+
+    document.getElementById('btnSignal').addEventListener('click', async () => {
+      const btn = document.getElementById('btnSignal');
+      btn.innerText = "TRANSMITTING TELEMETRY...";
+      try {
+        const res = await fetch('/api/incidents/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            incident_type: 'aggressive_posture',
+            description: 'Automated CV Telemetry: Confrontational stance and crowd imbalance in alley',
+            latitude: 12.9716,
+            longitude: 77.5946,
+            reporter_type: 'camera_cv',
+            source: 'cctv_ai',
+            severity: 4
+          })
+        });
+        if (res.ok) {
+          alert("CV anomaly signal transmitted to ASTRA. Pattern clustering refreshed.");
+          fetchAlerts();
+        }
+      } catch (err) {
+        alert("Signal transmission error: " + err.message);
+      } finally {
+        btn.innerText = "⚡ TRANSMIT CV ANOMALY TRIGGER TO ASTRA PLATFORM";
+      }
+    });
+
+    fetchAlerts();
+    setInterval(fetchAlerts, 6000);
+  </script>
+</body>
+</html>
